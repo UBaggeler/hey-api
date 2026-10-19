@@ -35,6 +35,33 @@ describe('createSseClient', () => {
     vi.restoreAllMocks();
   });
 
+  it.each([undefined, null, '', '{"hello":"world"}'])(
+    'uses the serialized body %j without forwarding the raw body',
+    async (serializedBody) => {
+      fetchMock.mockResolvedValue(new Response(makeStream(['data: ok\n\n'])));
+      const onRequest = vi.fn((url: string, init: RequestInit) =>
+        Promise.resolve(new Request(url, init)),
+      );
+      const { stream } = createSseClient({
+        body: 'unserialized body',
+        method: 'POST',
+        onRequest,
+        serializedBody,
+        sseMaxRetryAttempts: 1,
+        url: 'http://localhost/sse',
+      });
+
+      const events = [];
+      for await (const event of stream) events.push(event);
+
+      expect(events).toEqual(['ok']);
+      expect(onRequest).toHaveBeenCalledOnce();
+      const init = onRequest.mock.calls[0]![1];
+      expect(Object.hasOwn(init, 'body')).toBe(serializedBody !== undefined);
+      expect(await (fetchMock.mock.calls[0]![0] as Request).text()).toBe(serializedBody ?? '');
+    },
+  );
+
   it('yields parsed JSON events', async () => {
     fetchMock.mockResolvedValue({
       body: makeStream(['id: 1\nevent: test\ndata: {"foo":"bar"}\n\n']),

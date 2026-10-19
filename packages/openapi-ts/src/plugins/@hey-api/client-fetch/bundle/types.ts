@@ -92,7 +92,7 @@ export interface ResolvedRequestOptions<
   Url extends string = string,
 > extends RequestOptions<unknown, TResponseStyle, ThrowOnError, Url> {
   headers: Headers;
-  serializedBody?: string;
+  serializedBody?: string | undefined;
 }
 
 export type RequestResult<
